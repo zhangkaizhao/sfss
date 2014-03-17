@@ -44,4 +44,5 @@ class File(object):
 class Stats(object):
 
     def get(self):
+        # TODO: including storages, storage proxies and webserver self.
         return fs.stats()

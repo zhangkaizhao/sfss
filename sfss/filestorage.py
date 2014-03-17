@@ -124,8 +124,8 @@ class Storage(object):
 
 
 fs = Storage(
-    settings.STORAGE_SERVERS,
-    settings.STORAGE_MAX_RETRY,
-    settings.RETRY_AFTER_SECONDS,
+    settings.STORAGE_PROXIES,
+    settings.STORAGE_PROXY_MAX_RETRY,
+    settings.STORAGE_PROXY_RETRY_AFTER_SECONDS,
     settings.MAX_ENCODED_PATH_LENGTH,
     settings.MAX_CONTENT_SIZE)
