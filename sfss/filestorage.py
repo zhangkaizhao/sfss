@@ -131,7 +131,7 @@ class Storage(object):
                     with self._lock:
                         server = '{0}:{1}'.format(conn.host, conn.port)
                         self._bad_servers[server] = time.time()
-        return got
+        return None
 
     def stats(self):
         # TODO get each Beansdb node stat
