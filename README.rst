@@ -167,8 +167,9 @@ description: post a file to storage
 
 request arguments:
 
-* path: required
-* upload_file: required, input type of file form field like
+* path: required (in query string)
+
+request body: file content
 
 response:
 
@@ -187,8 +188,9 @@ description: update file in storage or post a file to storage
 
 request arguments:
 
-* path: required
-* upload_file: required, input type of file form field like
+* path: required (in query string)
+
+request body: file content
 
 response:
 
@@ -200,10 +202,10 @@ error response:
 * 413 Request Entity Too Large: file size more than 2MB
 * 504 Gateway Timeout: none storage proxies available
 
-GET /stats
----------
+GET /status
+-----------
 
-description: get server stats
+description: get server status
 
 request arguments: None
 
@@ -264,7 +266,7 @@ error response:
 
 * 504 Gateway Timeout: none storage proxies available
 
-TODO: including all servers' stats: storages, webserver.
+TODO: including all stats of storages and status of webserver.
       then response body will like::
 
       {
