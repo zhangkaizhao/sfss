@@ -1,15 +1,6 @@
 import binascii
 
-from filestorage import fs
-
-
-class FileStorage(object):
-
-    def __init__(self):
-        pass
-
-    def put(self, _file):
-        return fs.put(_file.encoded_path, _file.content)
+from .filestorage import fs
 
 
 class File(object):
@@ -25,7 +16,7 @@ class File(object):
         ''' encoded path for filestorage '''
         if not hasattr(self, '_encoded_path'):
             path = self.path
-            if isinstance(path, unicode):
+            if isinstance(path, str):
                 path = path.encode('utf-8')
             self._encoded_path = binascii.b2a_base64(path)[:-1]
         return self._encoded_path
@@ -39,10 +30,3 @@ class File(object):
                 self.content = fs.get(self.encoded_path)
                 self._content_got = True
         return self.content
-
-
-class Stats(object):
-
-    def get(self):
-        # TODO: including storages, storage proxies and webserver self.
-        return fs.stats()

@@ -1,11 +1,12 @@
 import time
 import random
 import threading
+import asyncio
 
-import memcache
+import aiomemcache
 
-from exceptions import NoAvailableStorageServer
-import settings
+from .exceptions import NoAvailableStorageServer
+from . import settings
 
 
 class Storage(object):
@@ -36,12 +37,13 @@ class Storage(object):
     def _get_random_server(self):
         retried = 0
         while True:
-            for server, bad_at in self._bad_servers.items():
-                if bad_at + self.retry_after_seconds < time.time():
-                    try:
-                        del self._bad_servers[server]
-                    except:
-                        pass
+            with self._lock:
+                for server, bad_at in self._bad_servers.items():
+                    if bad_at + self.retry_after_seconds < time.time():
+                        try:
+                            del self._bad_servers[server]
+                        except:
+                            pass
 
             if self._server is not None:
                 return self._server
@@ -53,8 +55,7 @@ class Storage(object):
             retried += 1
             if retried >= self.max_retry:
                 break
-            # XXX need to change with async
-            time.sleep(0.001)
+            asyncio.sleep(0.001)
         return None
 
     def _get_conn(self, server):
@@ -63,18 +64,20 @@ class Storage(object):
         with self._lock:
             conn = self._cached_conns.get(server)
             if not conn:
-                conn = memcache.Client(
-                    [server],
-                    socket_timeout=self.retry_after_seconds,
-                    server_max_value_length=self.max_content_size)
+                host, port = server.split(':')
+                port = int(port)
+                conn = aiomemcache.Client(
+                    host, port,
+                    connect_timeout=self.retry_after_seconds)
                 self._cached_conns[server] = conn
 
         # try to connect in socket_timeout
         start_time = time.time()
         while True:
-            if conn.servers[0].connect():
+            _protocol = yield from conn._get_connection()
+            if _protocol.is_connected:
                 return conn
-            if start_time + conn.socket_timeout < time.time():
+            if start_time + conn._timeout < time.time():
                 break
             # XXX need to change with async
             time.sleep(0.001)
@@ -82,7 +85,7 @@ class Storage(object):
 
     def get_conn(self):
         ''' get random connection within max retry. '''
-        for _ in xrange(self.max_retry):
+        for _ in range(self.max_retry):
             server = self._get_random_server()
             if not server:
                 raise NoAvailableStorageServer()
@@ -96,30 +99,57 @@ class Storage(object):
     def put(self, path, content):
         # can we use generator to avoid high memory usage at one time?
         #content = b''.join(file_iter)
-        for _ in xrange(2):
-            conn = self.get_conn()
-            ret = conn.set(path, content)
-            if ret is not None:
-                return ret
-        return ret
+        for _ in range(2):
+            conn = None
+            try:
+                conn = yield from self.get_conn()
+                yield from conn.set(path, content)
+                return True
+            except NoAvailableStorageServer:
+                raise
+            except ConnectionRefusedError:
+                if conn is not None:
+                    with self._lock:
+                        server = '{0}:{1}'.format(conn.host, conn.port)
+                        self._bad_servers[server] = time.time()
+        return False
 
     def get(self, path):
-        for _ in xrange(2):
-            conn = self.get_conn()
-            # '' -> empty body
-            # or None -> non-existent or connection broken
-            got = conn.get(path)
-            if got is not None:
-                return got
+        for _ in range(2):
+            conn = None
+            try:
+                conn = yield from self.get_conn()
+                # '' -> empty body
+                # or None -> non-existent or connection broken
+                got = yield from conn.get(path)
+                if got is not None:
+                    return got
+            except NoAvailableStorageServer:
+                raise
+            except ConnectionRefusedError:
+                if conn is not None:
+                    with self._lock:
+                        server = '{0}:{1}'.format(conn.host, conn.port)
+                        self._bad_servers[server] = time.time()
         return got
 
     def stats(self):
         # TODO get each Beansdb node stat
         outdict = {}
         for server in self.servers:
-            conn = self._get_conn(server)
-            stats = conn.get_stats()
-            outdict[server] = stats[0][1] if stats else {}
+            try:
+                conn = yield from self._get_conn(server)
+                stats = yield from conn.stats()
+                stats = {k.decode(): v.decode() for k, v in stats.items()}
+                outdict[server] = stats if stats else {}
+            except NoAvailableStorageServer:
+                raise
+            except ConnectionRefusedError:
+                outdict[server] = {}
+                if conn is not None:
+                    with self._lock:
+                        server = '{0}:{1}'.format(conn.host, conn.port)
+                        self._bad_servers[server] = time.time()
         return outdict
 
 

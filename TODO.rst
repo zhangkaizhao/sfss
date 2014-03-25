@@ -1,12 +1,20 @@
 TODO
 ====
 
+:Date: 2014,03,26
 
-* get stats of storages from storage proxies or storages self
+recent:
+
+* do not use beanseye.
+* using python client from beansdb but with Python (>=3.4.0) and aiomemcache
+
+and than:
+
+* get stats of storages and get status of web server
 * logging
-* simple client using service API
 * more documentation
 * tests
 * webserver benchmark
-* WSGI application for fast WSGI server, e.g. gevent, meinheld, etc.
+* find a way to limit size of request body in memory.
+  maybe need to try other WSGI server, e.g. Tornado, waitress, etc.
 * ...

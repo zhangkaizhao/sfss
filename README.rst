@@ -2,7 +2,7 @@
 Small file storage service
 ==========================
 
-:Date: 2014,03,18
+:Date: 2014,03,26
 :Status: to be continued
 
 
@@ -12,9 +12,11 @@ overview
 using:
 
 * storage: Beansdb (git)
-* storage proxy: Beanseye (git)
-* storage client: python-memcached
-* web framework: morepath (git)
+* storage proxy: Beanseye (git) (XXX will be removed soon)
+* storage client: aiomemcache (git)
+* web server programming language: Python (>= 3.3.0)
+* asynchronous IO: asyncio
+* WSGI server: aiohttp
 * ...
 
 
@@ -81,11 +83,11 @@ cd to sfss directory::
 
 bootstrap our environment::
 
-    $ python2 bootstrap.py
+    $ python3 bootstrap.py
 
 if zc.buildout version conflicts with setuptools version, then use::
 
-    $ python2 bootstrap.py -v 2.1.1
+    $ python3 bootstrap.py -v 2.1.1
 
 or upgrade used setuptools to latest version.
 
@@ -101,34 +103,11 @@ edit web server configure::
 
     $ vi sfss/settings.py
 
-start server using default wsgiref.simple_server::
+start server using aiohttp::
 
     $ ./bin/sfss --host 0.0.0.0 --port 8255
 
 now server will run on http://0.0.0.0:8255
-
-using supervisor
-----------------
-
-we can manage all progresses by supervisor.
-
-edit supervisor section in buildout.cfg::
-
-    $ vi buildout.cfg
-
-start supervisor daemon::
-
-    $ ./bin/supervisord
-
-manage our progresses::
-
-    $ ./bin/supervisorctl start all
-    $ ./bin/supervisorctl status
-    $ ./bin/supervisorctl stop all
-    $ ./bin/supervisorctl start webserver0
-    $ ./bin/supervisorctl stop webserver0
-    $ ./bin/supervisorctl shutdown
-    $ ./bin/supervisorctl -h
 
 test with curl
 --------------
@@ -149,7 +128,7 @@ get file content with GET method::
 
 get stats of storage proxies::
 
-    $ curl -v http://0.0.0.0:8255/stats
+    $ curl -v http://0.0.0.0:8255/status
 
 service API
 ===========
@@ -285,7 +264,7 @@ error response:
 
 * 504 Gateway Timeout: none storage proxies available
 
-TODO: including all servers' stats: storages, storage proxies, webserver.
+TODO: including all servers' stats: storages, webserver.
       then response body will like::
 
       {
@@ -299,14 +278,20 @@ TODO: including all servers' stats: storages, storage proxies, webserver.
                   'name12': 'value12'
               }
           },
-          'proxies': {
-              'proxy1': {
-                  'name31': 'value31',
-                  'name32': 'value32'
-              }
-          },
           'webserver': {
               'name41': 'value41',
               'name42': 'value42'
           }
       }
+
+
+simple client
+=============
+
+simple client in simple_client.py is just script for testing of posting file::
+
+    $ python3 simple_client.py -h
+    $ python3 simple_client.py --host 127.0.0.1 --port 8255 \
+      --path folder/subfolder/filename.ext --filepath /path/to/local/file
+
+TODO: benchmark on simple client
