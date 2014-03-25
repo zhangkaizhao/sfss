@@ -137,6 +137,7 @@ class Storage(object):
         # TODO get each Beansdb node stat
         outdict = {}
         for server in self.servers:
+            conn = None
             try:
                 conn = yield from self._get_conn(server)
                 stats = yield from conn.stats()
