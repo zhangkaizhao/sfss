@@ -1,8 +1,10 @@
 import json
 import mimetypes
-#import io
+import io
 import urllib.parse
 from urllib.parse import parse_qs
+
+from aiohttp.parsers import EofStream
 
 from .filestorage import fs
 from .model import File
@@ -41,32 +43,54 @@ def simple_app(environ, start_response):
                 start_response(status, [])
                 return []
 
-            ## which wsgi server support reading by chunk?
-            ## aiohttp does not support now...
-            #rfile = environ['wsgi.input']
-            #buffered = io.BytesIO()
-            #read_size = 0
-            #while True:
-            #    # XXX, how to stream?
-            #    chunk = rfile.read(chunk_size)
-            #    len_chunk = len(chunk)
-            #    if not len_chunk:
-            #        break
-            #    buffered = buffered + chunk
-            #    read_size = read_size + len_chunk
-            #    if read_size > max_file_size:
-            #        status = '416 Request Entity too Large'
-            #        start_response(status, [])
-            #        return []
-            #_file.content = buffered.getvalue()
-            # XXX
+            # check content length header in request
+            len_body = None
+            content_length_str = environ.get('CONTENT_LENGTH', None)
+            if content_length_str is not None:
+                try:
+                    len_body = int(content_length_str)
+                    if len_body < 0:
+                        raise ValueError()
+                except ValueError:
+                    status = '400 Bad Request'
+                    start_response(status, [])
+                    return ['invalid content length header.']
+                if len_body > max_file_size:
+                    status = '416 Request Entity too Large'
+                    start_response(status, [])
+                    return []
+
+            # get file content
             rfile = environ['wsgi.input']
-            content = yield from rfile.read()
-            if len(content) > max_file_size:
-                status = '416 Request Entity too Large'
-                start_response(status, [])
-                return []
-            _file.content = content
+            buff = io.BytesIO()
+            while True:
+                try:
+                    chunk = yield from rfile.read()
+                except EofStream:
+                    break
+                if not chunk:
+                    break
+                got_size = buff.tell()
+                next_got_size = got_size + len(chunk)
+                if next_got_size > max_file_size:
+                    buff.close()
+                    status = '416 Request Entity too Large'
+                    start_response(status, [])
+                    return []
+                buff.write(chunk)
+                if len_body is not None:
+                    if next_got_size >= len_body:
+                        break
+
+            if len_body is not None:
+                if buff.tell() != len_body:
+                    buff.close()
+                    status = '400 Bad Request'
+                    start_response(status, [])
+                    return ['invalid content length header or request body.']
+
+            _file.content = buff.getvalue()
+            buff.close()
 
             ret = yield from _file.save()
             if ret:
@@ -120,14 +144,54 @@ def simple_app(environ, start_response):
                 return [file_content]
 
         elif request_method == 'PUT':
-            # XXX
+            # check content length header in request
+            len_body = None
+            content_length_str = environ.get('CONTENT_LENGTH', None)
+            if content_length_str is not None:
+                try:
+                    len_body = int(content_length_str)
+                    if len_body < 0:
+                        raise ValueError()
+                except ValueError:
+                    status = '400 Bad Request'
+                    start_response(status, [])
+                    return ['invalid content length header.']
+                if len_body > max_file_size:
+                    status = '416 Request Entity too Large'
+                    start_response(status, [])
+                    return []
+
+            # get file content
             rfile = environ['wsgi.input']
-            content = yield from rfile.read()
-            if len(content) > max_file_size:
-                status = '416 Request Entity too Large'
-                start_response(status, [])
-                return []
-            _file.content = content
+            buff = io.BytesIO()
+            while True:
+                try:
+                    chunk = yield from rfile.read()
+                except EofStream:
+                    break
+                if not chunk:
+                    break
+                got_size = buff.tell()
+                next_got_size = got_size + len(chunk)
+                if next_got_size > max_file_size:
+                    buff.close()
+                    status = '416 Request Entity too Large'
+                    start_response(status, [])
+                    return []
+                buff.write(chunk)
+                if len_body is not None:
+                    if next_got_size >= len_body:
+                        break
+
+            if len_body is not None:
+                if buff.tell() != len_body:
+                    buff.close()
+                    status = '400 Bad Request'
+                    start_response(status, [])
+                    return ['invalid content length header or request body.']
+
+            _file.content = buff.getvalue()
+            buff.close()
 
             ret = yield from _file.save()
             if ret:
@@ -173,10 +237,10 @@ def main():
     parser = argparse.ArgumentParser(description="Run simple http server.")
     parser.add_argument(
         '--host', action="store", dest='host',
-        default='127.0.0.1', help='Host name')
+        default='127.0.0.1', help='Host name, default: 127.0.0.1')
     parser.add_argument(
         '--port', action="store", dest='port',
-        default=8080, type=int, help='Port number')
+        default=8080, type=int, help='Port number, default: 8080')
     parser.add_argument(
         '--iocp', action="store_true", dest='iocp',
         help='Windows IOCP event loop')
@@ -227,6 +291,7 @@ def main():
     try:
         loop.run_forever()
     except KeyboardInterrupt:
+        print()
         pass
 
 

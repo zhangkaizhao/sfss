@@ -7,6 +7,10 @@ import asyncio
 import aiohttp
 
 
+class PutFileFailed(Exception):
+    ''' failed to put file into storage. '''
+
+
 class SimpleClient(object):
 
     def __init__(self, host, port):
@@ -21,23 +25,21 @@ class SimpleClient(object):
             'http://{0}:{1}/files'.format(self.host, self.port),
             params={'path': path},
             data=content)
-        if response.status == 201:
-            return True
-        else:
-            return False
+        if response.status != 201:
+            # TODO more info
+            raise PutFileFailed('response status: {0}'.format(response.status))
 
     def put(self, path, content):
         if isinstance(path, str):
             path = path.encode('utf-8')
         response = yield from aiohttp.request(
             'PUT',
-            'http://{0}:{1}/files'.format(self.host, self.port),
+            'http://{0}:{1}/file'.format(self.host, self.port),
             {'path': path},
             content)
-        if response.status == 200:
-            return True
-        else:
-            return False
+        if response.status != 200:
+            # TODO more info
+            raise PutFileFailed('response status: {0}'.format(response.status))
 
 
 if __name__ == '__main__':
