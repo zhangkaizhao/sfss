@@ -232,7 +232,6 @@ def main():
     import ssl
     import asyncio
     from aiohttp.wsgi import WSGIServerHttpProtocol
-    server = WSGIServerHttpProtocol(simple_app)
 
     parser = argparse.ArgumentParser(description="Run simple http server.")
     parser.add_argument(
@@ -281,7 +280,7 @@ def main():
 
     loop = asyncio.get_event_loop()
     f = loop.create_server(
-        lambda: server,
+        lambda: WSGIServerHttpProtocol(simple_app),
         args.host,
         args.port,
         ssl=sslcontext)
