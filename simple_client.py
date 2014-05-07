@@ -48,13 +48,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Run simple client.")
     parser.add_argument(
         '--host', action="store", dest='host',
-        default='127.0.0.1', help='Host name')
+        default='127.0.0.1', help='Host name. default: 127.0.0.1')
     parser.add_argument(
         '--port', action="store", dest='port',
-        default=8080, type=int, help='Port number')
+        default=8080, type=int, help='Port number. default: 8080')
     parser.add_argument(
         '--iocp', action="store_true", dest='iocp',
-        help='Windows IOCP event loop')
+        help='Whether using indows IOCP event loop. default: false')
     parser.add_argument(
         '--path', action="store", dest='path',
         help='File path to store in server')
